@@ -76,14 +76,8 @@
       text-align: left;
     }
 
-    .btn:hover:not(:disabled) { opacity: .75; }
-    .btn:disabled { opacity: .45; cursor: not-allowed; }
-    .btn.loading svg { animation: bob .8s ease-in-out infinite; }
-
-    @keyframes bob {
-      0%,100% { transform: translateY(0); }
-      50%      { transform: translateY(3px); }
-    }
+    .btn:hover { opacity: .75; }
+    .btn svg { flex-shrink: 0; opacity: .55; }
 
     #ver {
       margin-top: 1rem;
@@ -91,6 +85,7 @@
       color: #bbb;
       letter-spacing: .04em;
       min-height: 1em;
+      transition: opacity .3s;
     }
 
     #ver a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
@@ -121,8 +116,9 @@
     <div class="name">Shanculator</div>
     <div class="sub">Calculator app &nbsp;·&nbsp; Android</div>
 
-    <button id="dl" class="btn loading" disabled>
-      <span id="dl-label">Fetching latest…</span>
+    <!-- Button is live immediately — no waiting -->
+    <button id="dl" class="btn">
+      <span>Download APK</span>
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M7 1v8M3.5 6 7 9.5 10.5 6M1.5 12h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
@@ -138,42 +134,29 @@
 </main>
 
 <script>
-  const btn   = document.getElementById('dl');
-  const label = document.getElementById('dl-label');
-  const ver   = document.getElementById('ver');
+  // Always-reliable direct URL — no API, no rate limits, no async
+  // GitHub permanently redirects /releases/latest/download/<filename> to the latest asset
+  const DIRECT = 'https://github.com/chandranshB/calculator-app-release-apk/releases/latest/download/app-release.apk';
+  let apkUrl = DIRECT;
 
-  let apkUrl = null;
+  document.getElementById('dl').addEventListener('click', () => {
+    window.location.href = apkUrl;
+  });
 
+  // Optionally enrich with version tag + size via API (best-effort, silent on failure)
   fetch('https://api.github.com/repos/chandranshB/calculator-app-release-apk/releases/latest')
     .then(r => r.ok ? r.json() : Promise.reject())
     .then(data => {
-      const tag  = data.tag_name ?? 'latest';
+      const tag  = data.tag_name;
       const apk  = (data.assets ?? []).find(a => a.name.endsWith('.apk'));
-      apkUrl     = apk?.browser_download_url ?? data.zipball_url;
       const size = apk ? ` · ${(apk.size / 1048576).toFixed(1)} MB` : '';
-
-      label.textContent = 'Download APK';
-      btn.disabled = false;
-      btn.classList.remove('loading');
-
-      ver.innerHTML =
+      // Use the specific asset URL if found, otherwise stick with DIRECT
+      if (apk?.browser_download_url) apkUrl = apk.browser_download_url;
+      document.getElementById('ver').innerHTML =
         `<a href="https://github.com/chandranshB/calculator-app-release-apk/releases/tag/${encodeURIComponent(tag)}"
            target="_blank" rel="noopener">${tag}</a>${size}`;
     })
-    .catch(() => {
-      // hard-coded fallback to known latest APK
-      apkUrl = 'https://github.com/chandranshB/calculator-app-release-apk/releases/latest/download/app-release.apk';
-      label.textContent = 'Download APK';
-      btn.disabled = false;
-      btn.classList.remove('loading');
-    });
-
-  btn.addEventListener('click', () => {
-    if (!apkUrl) return;
-    // window.location.href lets GitHub serve the file with its own
-    // Content-Disposition: attachment header — triggers a real download
-    window.location.href = apkUrl;
-  });
+    .catch(() => {}); // silently ignored — button already works without it
 </script>
 </body>
 </html>
